@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f5f5f2" />
+    <title>考研政治</title>
+    <style>
+      :root {
+        --paper: #f5f5f2;
+        --ink: #171717;
+        --muted: #777772;
+        --rule: #d8d8d2;
+        --accent: #e4002b;
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 320px;
+        background: var(--paper);
+      }
+
+      body {
+        min-height: 100vh;
+        min-height: 100svh;
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        text-rendering: optimizeLegibility;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .page {
+        width: min(100%, 1440px);
+        min-height: 100vh;
+        min-height: 100svh;
+        margin: 0 auto;
+        padding:
+          0 max(clamp(20px, 4vw, 58px), env(safe-area-inset-right))
+          max(52px, calc(env(safe-area-inset-bottom) + 24px))
+          max(clamp(20px, 4vw, 58px), env(safe-area-inset-left));
+      }
+
+      .shelf-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        padding: clamp(30px, 5vw, 54px) 0 18px;
+        border-bottom: 1px solid var(--ink);
+      }
+
+      .shelf-heading h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 650;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+      }
+
+      .shelf-heading span {
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+      }
+
+      .book-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 220px));
+        gap: clamp(38px, 5vw, 68px);
+        padding: clamp(34px, 5vw, 58px) 0 34px;
+      }
+
+      .book {
+        min-width: 0;
+      }
+
+      .book-link {
+        display: block;
+        text-decoration: none;
+        touch-action: manipulation;
+      }
+
+      .cover {
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-end;
+        aspect-ratio: 778 / 1100;
+        overflow: hidden;
+        padding: 30px clamp(22px, 4vw, 30px);
+        background:
+          linear-gradient(145deg, rgba(255, 255, 255, 0.55), transparent 48%),
+          #faf6ea;
+        border: 1px solid rgba(23, 23, 23, 0.18);
+        box-shadow:
+          0 2px 0 rgba(23, 23, 23, 0.12),
+          0 20px 34px rgba(23, 23, 23, 0.14);
+        transition:
+          transform 420ms var(--ease),
+          box-shadow 420ms var(--ease);
+      }
+
+      .cover::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        z-index: 2;
+        width: 9px;
+        content: "";
+        background: rgba(23, 23, 23, 0.13);
+        border-right: 1px solid rgba(255, 255, 255, 0.6);
+        mix-blend-mode: multiply;
+      }
+
+      .cover::after {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        content: "";
+        border: 1px solid rgba(255, 255, 255, 0.62);
+        pointer-events: none;
+      }
+
+      .cover-title {
+        position: relative;
+        z-index: 2;
+        max-width: 100%;
+        font-family:
+          "STKaiti", "LXGW WenKai", "KaiTi", "Kaiti SC", "FangSong",
+          serif;
+        font-size: clamp(34px, 10.5vw, 44px);
+        font-weight: 700;
+        line-height: 1.12;
+        letter-spacing: 0.045em;
+        overflow-wrap: anywhere;
+        text-shadow: 0 1px 0 rgba(35, 29, 22, 0.12);
+        transition:
+          letter-spacing 420ms var(--ease),
+          font-size 180ms ease;
+      }
+
+      .cover-title.is-long {
+        font-size: clamp(24px, 7.5vw, 32px);
+        line-height: 1.18;
+      }
+
+      .cover-title.is-very-long {
+        font-size: clamp(18px, 5.8vw, 25px);
+        line-height: 1.25;
+      }
+
+      .cover-extension {
+        position: relative;
+        z-index: 2;
+        display: block;
+        margin-top: 13px;
+        margin-left: 3px;
+        color: #6f675b;
+        font-family:
+          "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: 0.16em;
+        text-transform: lowercase;
+      }
+
+      .book-link:hover .cover {
+        transform: translateY(-9px);
+        box-shadow:
+          0 2px 0 rgba(23, 23, 23, 0.12),
+          0 28px 44px rgba(23, 23, 23, 0.2);
+      }
+
+      .book-link:hover .cover-title {
+        letter-spacing: 0.065em;
+      }
+
+      .book-link:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 4px;
+      }
+
+      .book-info {
+        padding: 14px 0 12px;
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .book-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.5;
+        letter-spacing: 0.04em;
+      }
+
+      .empty-state {
+        grid-column: 1 / -1;
+        padding: 34px 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.8;
+      }
+
+      .empty-state strong {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 500;
+      }
+
+      .reader {
+        height: 100vh;
+        height: 100svh;
+        height: 100dvh;
+        overflow: hidden;
+        background: #525659;
+      }
+
+      .reader-frame {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border: 0;
+        background: #525659;
+      }
+
+      @media (max-width: 620px) {
+        .page {
+          padding-right: max(20px, env(safe-area-inset-right));
+          padding-bottom: max(32px, calc(env(safe-area-inset-bottom) + 20px));
+          padding-left: max(20px, env(safe-area-inset-left));
+        }
+
+        .shelf-heading {
+          padding-top: 28px;
+        }
+
+        .book-grid {
+          grid-template-columns: minmax(0, 220px);
+          padding-top: 32px;
+        }
+
+        .cover {
+          padding: 26px 22px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section id="libraryView">
+      <div class="page">
+        <header class="shelf-heading">
+          <h1>全部书目</h1>
+          <span id="bookCount">0 本</span>
+        </header>
+
+        <main id="bookGrid" class="book-grid" aria-label="全部书目">
+          <div id="emptyState" class="empty-state" hidden>
+            <strong>没有找到 PDF</strong>
+            把 PDF 放进这个文件夹，双击「更新书架.bat」，再刷新此页。
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section id="readerView" class="reader" aria-label="PDF 阅读器" hidden>
+      <iframe id="pdfFrame" class="reader-frame"></iframe>
+    </section>
+
+    <script src="books.js"></script>
+    <script>
+      const libraryView = document.querySelector("#libraryView");
+      const readerView = document.querySelector("#readerView");
+      const bookGrid = document.querySelector("#bookGrid");
+      const emptyState = document.querySelector("#emptyState");
+      const bookCount = document.querySelector("#bookCount");
+      const pdfFrame = document.querySelector("#pdfFrame");
+      const books = Array.isArray(window.BOOKS)
+        ? window.BOOKS.filter(
+            (book) =>
+              book &&
+              typeof book.title === "string" &&
+              typeof book.file === "string",
+          )
+        : [];
+      let currentBook = null;
+      let lastBookLink = null;
+
+      function formatSize(bytes) {
+        const size = Number(bytes);
+        if (!Number.isFinite(size) || size <= 0) return "PDF";
+        const megabytes = size / 1024 / 1024;
+        if (megabytes >= 10) return `${Math.round(megabytes)} MB`;
+        return `${megabytes.toFixed(1)} MB`;
+      }
+
+      function renderBooks() {
+        bookCount.textContent = `${books.length} 本`;
+        emptyState.hidden = books.length > 0;
+        bookGrid.querySelectorAll(".book").forEach((card) => card.remove());
+
+        books.forEach((book) => {
+          const extension = book.title.match(/\.pdf$/i)?.[0].toLowerCase() || ".pdf";
+          const title = book.title.replace(/\.pdf$/i, "");
+          const article = document.createElement("article");
+          article.className = "book";
+
+          const link = document.createElement("a");
+          link.className = "book-link";
+          link.href = `#${book.file}`;
+          link.setAttribute("aria-label", `打开${book.title}`);
+
+          const cover = document.createElement("div");
+          cover.className = "cover";
+
+          const titleNode = document.createElement("span");
+          titleNode.className = "cover-title";
+          titleNode.textContent = title;
+          const characterCount = Array.from(title).length;
+          titleNode.classList.toggle("is-long", characterCount > 7);
+          titleNode.classList.toggle("is-very-long", characterCount > 14);
+
+          const extensionNode = document.createElement("span");
+          extensionNode.className = "cover-extension";
+          extensionNode.textContent = extension;
+
+          const info = document.createElement("div");
+          info.className = "book-info";
+          const meta = document.createElement("p");
+          meta.className = "book-meta";
+          meta.textContent = `PDF · ${formatSize(book.size)}`;
+          info.append(meta);
+
+          cover.append(titleNode, extensionNode);
+          link.append(cover, info);
+          link.addEventListener("click", (event) => {
+            if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+            event.preventDefault();
+            lastBookLink = link;
+            openBook(book, true);
+          });
+
+          article.append(link);
+          bookGrid.append(article);
+        });
+      }
+
+      function openBook(book, updateHistory = false) {
+        currentBook = book;
+        pdfFrame.title = book.title;
+        pdfFrame.src = `${book.file}#zoom=page-width`;
+        libraryView.hidden = true;
+        readerView.hidden = false;
+        document.title = `${book.title} / 考研政治`;
+
+        if (updateHistory) {
+          history.pushState({ book: book.file }, "", `#${book.file}`);
+        }
+      }
+
+      function showLibrary(updateHistory = false) {
+        currentBook = null;
+        readerView.hidden = true;
+        libraryView.hidden = false;
+        document.title = "考研政治";
+        if (updateHistory) {
+          history.replaceState({}, "", window.location.pathname);
+        }
+        lastBookLink?.focus({ preventScroll: true });
+      }
+
+      function routeFromHash() {
+        let route = window.location.hash.slice(1);
+        try {
+          route = decodeURIComponent(route);
+        } catch {
+          route = "";
+        }
+        const book = books.find(
+          (item) => item.file === route || item.title === route,
+        );
+        if (book) {
+          lastBookLink =
+            [...bookGrid.querySelectorAll(".book-link")].find(
+              (link) => link.getAttribute("href") === `#${book.file}`,
+            ) || null;
+          openBook(book, false);
+        } else {
+          showLibrary();
+        }
+      }
+
+      window.addEventListener("popstate", routeFromHash);
+
+      renderBooks();
+      routeFromHash();
+    </script>
+  </body>
+</html>
