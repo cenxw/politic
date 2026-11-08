@@ -234,11 +234,61 @@
       }
 
       .reader {
+        position: relative;
         height: 100vh;
         height: 100svh;
         height: 100dvh;
         overflow: hidden;
         background: #525659;
+      }
+
+      .pdfjs-viewer {
+        position: absolute;
+        inset: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        background: #4b4e50;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .pdfjs-pages {
+        display: grid;
+        width: min(100%, 1040px);
+        gap: 14px;
+        margin: 0 auto;
+        padding:
+          12px max(10px, env(safe-area-inset-right))
+          max(24px, calc(env(safe-area-inset-bottom) + 12px))
+          max(10px, env(safe-area-inset-left));
+      }
+
+      .pdfjs-page {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+        aspect-ratio: 778 / 1100;
+        background: #ffffff;
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.2);
+      }
+
+      .pdfjs-page canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #ffffff;
+      }
+
+      .pdfjs-status {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        padding: 28px;
+        place-items: center;
+        color: #e8e8e4;
+        background: #4b4e50;
+        font-size: 13px;
+        line-height: 1.7;
+        text-align: center;
       }
 
       .reader-frame {
@@ -299,6 +349,10 @@
 
     <section id="readerView" class="reader" aria-label="PDF 阅读器" hidden>
       <iframe id="pdfFrame" class="reader-frame"></iframe>
+      <div id="pdfjsViewer" class="pdfjs-viewer" hidden>
+        <div id="pdfjsStatus" class="pdfjs-status" role="status">正在加载 PDF</div>
+        <div id="pdfjsPages" class="pdfjs-pages" hidden></div>
+      </div>
     </section>
 
     <script src="books.js"></script>
@@ -309,6 +363,9 @@
       const emptyState = document.querySelector("#emptyState");
       const bookCount = document.querySelector("#bookCount");
       const pdfFrame = document.querySelector("#pdfFrame");
+      const pdfjsViewer = document.querySelector("#pdfjsViewer");
+      const pdfjsStatus = document.querySelector("#pdfjsStatus");
+      const pdfjsPages = document.querySelector("#pdfjsPages");
       const books = Array.isArray(window.BOOKS)
         ? window.BOOKS.filter(
             (book) =>
@@ -319,6 +376,12 @@
         : [];
       let currentBook = null;
       let lastBookLink = null;
+      let pdfjsLibraryPromise = null;
+      let pdfDocument = null;
+      let pdfLoadingTask = null;
+      let pdfjsObserver = null;
+      let pdfjsGeneration = 0;
+      let resizeTimer;
 
       function formatSize(bytes) {
         const size = Number(bytes);
@@ -379,13 +442,202 @@
         });
       }
 
+      function shouldUsePdfJsViewer() {
+        const isOnline = /^https?:$/.test(window.location.protocol);
+        const isMobileDevice =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+          );
+        const isTouchTablet =
+          navigator.maxTouchPoints > 1 && window.innerWidth < 1200;
+        const isNarrowTouchScreen =
+          navigator.maxTouchPoints > 0 &&
+          window.matchMedia("(max-width: 900px)").matches;
+        return (
+          isOnline &&
+          (isMobileDevice || isTouchTablet || isNarrowTouchScreen)
+        );
+      }
+
+      function loadPdfJsLibrary() {
+        if (!pdfjsLibraryPromise) {
+          pdfjsLibraryPromise = import(
+            new URL("vendor/pdfjs/pdf.min.mjs", document.baseURI).href
+          ).then((pdfjsLib) => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+              "vendor/pdfjs/pdf.worker.min.mjs",
+              document.baseURI,
+            ).href;
+            return pdfjsLib;
+          });
+        }
+        return pdfjsLibraryPromise;
+      }
+
+      function resetPdfJsViewer() {
+        pdfjsGeneration += 1;
+        pdfjsObserver?.disconnect();
+        pdfjsObserver = null;
+
+        if (pdfLoadingTask) {
+          Promise.resolve(pdfLoadingTask.destroy()).catch(() => {});
+        }
+        pdfLoadingTask = null;
+        pdfDocument = null;
+        pdfjsPages.replaceChildren();
+        pdfjsPages.hidden = true;
+        pdfjsStatus.hidden = false;
+        pdfjsStatus.textContent = "正在加载 PDF";
+      }
+
+      async function renderPdfPage(pageElement, generation) {
+        if (
+          !pdfDocument ||
+          pageElement.dataset.rendered === "true" ||
+          pageElement.dataset.rendering === "true"
+        ) {
+          return;
+        }
+
+        pageElement.dataset.rendering = "true";
+        try {
+          const page = await pdfDocument.getPage(
+            Number(pageElement.dataset.pageNumber),
+          );
+          if (generation !== pdfjsGeneration) return;
+
+          const unscaledViewport = page.getViewport({ scale: 1 });
+          const cssWidth = Math.max(
+            280,
+            Math.min(
+              pageElement.clientWidth || pdfjsViewer.clientWidth,
+              1100,
+            ),
+          );
+          const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+          const viewport = page.getViewport({
+            scale: (cssWidth * pixelRatio) / unscaledViewport.width,
+          });
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+          canvas.setAttribute(
+            "aria-label",
+            `第 ${pageElement.dataset.pageNumber} 页`,
+          );
+          canvas.setAttribute("role", "img");
+          pageElement.style.aspectRatio = `${unscaledViewport.width} / ${unscaledViewport.height}`;
+          pageElement.replaceChildren(canvas);
+
+          await page.render({
+            canvasContext: canvas.getContext("2d", { alpha: false }),
+            viewport,
+          }).promise;
+
+          if (generation !== pdfjsGeneration) return;
+          if (pageElement.dataset.visible === "false") {
+            pageElement.replaceChildren();
+            pageElement.dataset.rendered = "false";
+          } else {
+            pageElement.dataset.rendered = "true";
+          }
+        } catch (error) {
+          if (generation === pdfjsGeneration) {
+            pageElement.dataset.rendered = "false";
+          }
+        } finally {
+          pageElement.dataset.rendering = "false";
+        }
+      }
+
+      function createPdfPagePlaceholders(pageCount, generation) {
+        const fragment = document.createDocumentFragment();
+        pdfjsObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              const pageElement = entry.target;
+              pageElement.dataset.visible = String(entry.isIntersecting);
+              if (entry.isIntersecting) {
+                renderPdfPage(pageElement, generation);
+              } else if (pageElement.dataset.rendered === "true") {
+                pageElement.replaceChildren();
+                pageElement.dataset.rendered = "false";
+              }
+            });
+          },
+          {
+            root: pdfjsViewer,
+            rootMargin: "100% 0px",
+            threshold: 0,
+          },
+        );
+
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+          const pageElement = document.createElement("div");
+          pageElement.className = "pdfjs-page";
+          pageElement.dataset.pageNumber = String(pageNumber);
+          pageElement.style.aspectRatio = "778 / 1100";
+          fragment.append(pageElement);
+          pdfjsObserver.observe(pageElement);
+        }
+        pdfjsPages.append(fragment);
+      }
+
+      async function startPdfJsViewer(book) {
+        resetPdfJsViewer();
+        const generation = pdfjsGeneration;
+        pdfFrame.hidden = true;
+        pdfFrame.src = "about:blank";
+        pdfjsViewer.hidden = false;
+
+        try {
+          const pdfjsLib = await loadPdfJsLibrary();
+          if (generation !== pdfjsGeneration) return;
+
+          const pdfUrl = new URL(book.file, document.baseURI);
+          pdfUrl.hash = "";
+          const base = new URL("vendor/pdfjs/", document.baseURI).href;
+          pdfLoadingTask = pdfjsLib.getDocument({
+            url: pdfUrl.href,
+            cMapUrl: `${base}cmaps/`,
+            cMapPacked: true,
+            standardFontDataUrl: `${base}standard_fonts/`,
+            wasmUrl: `${base}wasm/`,
+          });
+
+          const documentProxy = await pdfLoadingTask.promise;
+          if (generation !== pdfjsGeneration) {
+            documentProxy.destroy();
+            return;
+          }
+
+          pdfDocument = documentProxy;
+          createPdfPagePlaceholders(documentProxy.numPages, generation);
+          pdfjsPages.hidden = false;
+          pdfjsStatus.hidden = true;
+          pdfjsViewer.scrollTop = 0;
+        } catch (error) {
+          if (generation !== pdfjsGeneration) return;
+          console.error(error);
+          pdfjsStatus.textContent = "在线预览加载失败，请刷新页面后重试。";
+        }
+      }
+
       function openBook(book, updateHistory = false) {
         currentBook = book;
-        pdfFrame.title = book.title;
-        pdfFrame.src = `${book.file}#zoom=page-width`;
         libraryView.hidden = true;
         readerView.hidden = false;
         document.title = `${book.title} / 考研政治`;
+
+        if (shouldUsePdfJsViewer()) {
+          startPdfJsViewer(book);
+        } else {
+          resetPdfJsViewer();
+          pdfjsViewer.hidden = true;
+          pdfFrame.hidden = false;
+          pdfFrame.title = book.title;
+          pdfFrame.src = `${book.file}#zoom=page-width`;
+        }
 
         if (updateHistory) {
           history.pushState({ book: book.file }, "", `#${book.file}`);
@@ -394,6 +646,10 @@
 
       function showLibrary(updateHistory = false) {
         currentBook = null;
+        resetPdfJsViewer();
+        pdfjsViewer.hidden = true;
+        pdfFrame.hidden = false;
+        pdfFrame.src = "about:blank";
         readerView.hidden = true;
         libraryView.hidden = false;
         document.title = "考研政治";
@@ -425,6 +681,19 @@
       }
 
       window.addEventListener("popstate", routeFromHash);
+      window.addEventListener("resize", () => {
+        if (pdfjsViewer.hidden) return;
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {
+          pdfjsPages.querySelectorAll(".pdfjs-page").forEach((pageElement) => {
+            pageElement.replaceChildren();
+            pageElement.dataset.rendered = "false";
+            if (pageElement.dataset.visible === "true") {
+              renderPdfPage(pageElement, pdfjsGeneration);
+            }
+          });
+        }, 220);
+      });
 
       renderBooks();
       routeFromHash();
